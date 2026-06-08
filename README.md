@@ -55,6 +55,71 @@ LET / LAMBDAを活用し、判定処理を変数化・モジュール化。
 
 ---
 
+# ■ アーキテクチャ
+
+本ツールは以下の3層構造で設計されている。
+
+---
+
+## ■ 構造概要
+
+## アーキテクチャ概要
+```mermaid
+flowchart TD
+    A["**フレームワーク層（LET / LAMBDA）**\n──────────────────────────────\n・処理全体の構造制御\n・EXPAND関数の定義"]
+    B["**データ生成・構造構築層**\n──────────────────────────────\n・EXPAND（配列テンプレ生成）\n・SEQUENCE（動的ラベル生成）\n・ラベル生成（フリー等）\n・表示用データの組み立て"]
+    C["**業務ロジック層**\n──────────────────────────────\n・MATCHによるリスト照合\n・区分判定（区分A / B / 通常）\n・判定ルールの統合"]
+    D["**レイアウト・出力制御層**\n──────────────────────────────\n・ISODD（偶数制御）\n・VSTACK / HSTACK\n・最終シート出力統合"]
+
+    A --> B --> C --> D
+
+    style A fill:#dbeafe,stroke:#3b82f6,stroke-width:2px,color:#1e3a5f
+    style B fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#14532d
+    style C fill:#fef9c3,stroke:#eab308,stroke-width:2px,color:#713f12
+    style D fill:#fce7f3,stroke:#ec4899,stroke-width:2px,color:#831843
+```
+
+## 実装コード
+
+LET ベースの実装コード全体。
+
+```
+=LET(
+  // ── フレームワーク層 ──────────────────────────────────────
+  EXPAND, LAMBDA(arr, r, c, pad,
+    MAKEARRAY(r, c, LAMBDA(r, c, IFERROR(INDEX(arr, r, c), pad)))
+  ),
+
+  // ── データ生成・構造構築層 ────────────────────────────────
+  空白,     ARRAYFORMULA(EXPAND("", 1, 列数, "")),
+  ラベル1,  ARRAYFORMULA(EXPAND("prefix", 1, 件数, "prefix") & SEQUENCE(1, 件数, 開始, 刻み)),
+  ラベル2,  ARRAYFORMULA(EXPAND("prefix", 1, 件数, "prefix") & SEQUENCE(1, 件数, 開始, 刻み)),
+  対象,     ARRAYFORMULA(EXPAND("対象", 1, 列数, "対象")),
+
+  // ── 業務ロジック層 ───────────────────────────────────────
+  判定,     ARRAYFORMULA(
+              IFERROR(
+                IF(MATCH(範囲, リスト1, 0), "区分A"),
+                IFERROR(
+                  IF(MATCH(範囲, リスト2, 0), "区分B"),
+                  "通常"
+                )
+              )
+            ),
+
+  // ── レイアウト・出力制御層 ────────────────────────────────
+  偶数判定, ARRAYFORMULA(ISODD(SEQUENCE(1, 列数, 1, 1))),
+  ARRAYFORMULA(
+    VSTACK(
+      空白,
+      IF(偶数判定, "", HSTACK(ラベル1, ラベル2)),
+      IF(偶数判定, "", 対象),
+      IF(偶数判定, "", 判定)
+    )
+  )
+)
+```
+
 ## 効果
 
 - 上書きによる誤判定リスクを排除
